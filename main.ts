@@ -1,56 +1,69 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 
+// Environment Variable ကို ဖတ်ယူခြင်း
 const API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 serve(async (req) => {
   const url = new URL(req.url);
 
+  // ၁။ Frontend UI
   if (req.method === "GET") {
     return new Response(`
       <html>
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Debug - Gemini AI Writer</title>
           <style>
-            body { font-family: sans-serif; padding: 20px; background: #0f172a; color: white; }
-            .box { background: #1e293b; padding: 25px; border-radius: 15px; max-width: 500px; margin: auto; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+            body { font-family: sans-serif; padding: 20px; background: #0f172a; color: white; line-height: 1.5; }
+            .box { background: #1e293b; padding: 20px; border-radius: 12px; max-width: 500px; margin: auto; }
             input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #334155; color: white; box-sizing: border-box; }
-            button { width: 100%; padding: 15px; background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
-            #output { margin-top: 20px; background: #0f172a; padding: 20px; border-radius: 10px; white-space: pre-wrap; display: none; line-height: 1.6; border-left: 5px solid #38bdf8; }
+            button { width: 100%; padding: 15px; background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
+            .status { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; }
+            #error-box { background: #fca5a5; color: #7f1d1d; border: 2px solid #ef4444; }
+            #success-box { background: #059669; color: white; }
           </style>
         </head>
         <body>
           <div class="box">
-            <h2 style="color: #38bdf8;">MoviPlus AI Writer 🤩</h2>
-            <p style="font-size: 14px; color: #94a3b8;">JAV Code နှင့် Trailer အညွှန်းမှတစ်ဆင့် မြန်မာစာသားထုတ်ယူရန်</p>
+            <h3>MoviPlus AI Writer (Debug Mode)</h3>
+            <p style="font-size: 13px; color: #94a3b8;">API Status: ${API_KEY ? "✅ Key Found" : "❌ Key Not Found in Deno Settings"}</p>
             <input type="text" id="code" placeholder="Movie Code (e.g. SSIS-881)">
-            <textarea id="shortDesc" rows="4" placeholder="Trailer Web မှ အညွှန်းတိုလေးကို ဒီမှာ Paste လုပ်ပါ..."></textarea>
-            <button onclick="generateStory()" id="genBtn">Generate Story (Gemini 1.5)</button>
-            <div id="output"></div>
+            <textarea id="shortDesc" rows="3" placeholder="Trailer description..."></textarea>
+            <button onclick="generate()">Generate & Trace Error</button>
+            
+            <div id="error-box" class="status"></div>
+            <div id="success-box" class="status"></div>
           </div>
 
           <script>
-            async function generateStory() {
+            async function generate() {
               const code = document.getElementById('code').value;
               const desc = document.getElementById('shortDesc').value;
-              const out = document.getElementById('output');
-              const btn = document.getElementById('genBtn');
+              const errBox = document.getElementById('error-box');
+              const succBox = document.getElementById('success-box');
 
-              if(!code || !desc) return alert("အချက်အလက် အကုန်ဖြည့်ပါ");
+              errBox.style.display = "none";
+              succBox.style.display = "none";
 
-              btn.innerText = "Gemini က စဉ်းစားနေပါတယ်...";
-              btn.disabled = true;
-
-              const response = await fetch('/api/gemini', {
-                method: 'POST',
-                body: JSON.stringify({ code, desc })
-              });
-              const data = await response.json();
-              
-              out.style.display = "block";
-              out.innerText = data.text;
-              btn.innerText = "Generate Story (Gemini 1.5)";
-              btn.disabled = false;
+              try {
+                const res = await fetch('/api/debug-gemini', {
+                  method: 'POST',
+                  body: JSON.stringify({ code, desc })
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                  errBox.style.display = "block";
+                  errBox.innerText = "Google API Error: " + data.error;
+                } else {
+                  succBox.style.display = "block";
+                  succBox.innerText = data.text;
+                }
+              } catch (e) {
+                errBox.style.display = "block";
+                errBox.innerText = "System Error: ချိတ်ဆက်မှု လုံးဝမရပါ";
+              }
             }
           </script>
         </body>
@@ -58,32 +71,38 @@ serve(async (req) => {
     `, { headers: { "Content-Type": "text/html; charset=UTF-8" } });
   }
 
-  if (req.method === "POST" && url.pathname === "/api/gemini") {
-    const body = await req.json();
-    
-    // Gemini ထံ ပို့မည့် ညွှန်ကြားချက် (Prompt)
-    const promptText = `ဇာတ်ကားကုဒ်: ${body.code}
-မူရင်းအညွှန်းတို: ${body.desc}
+  // ၂။ Backend API with Detailed Error Logging
+  if (req.method === "POST" && url.pathname === "/api/debug-gemini") {
+    if (!API_KEY) {
+      return new Response(JSON.stringify({ error: "Deno Settings ထဲမှာ GEMINI_API_KEY ကို မတွေ့ပါ။" }), { status: 400 });
+    }
 
-အထက်ပါ အချက်အလက်များကို အခြေခံ၍ ရုပ်ရှင်ကြည့်သူများ စိတ်ဝင်စားသွားစေမည့် မြန်မာလို ဇာတ်လမ်းအညွှန်း အရှည်တစ်ခုကို ဆွဲဆောင်မှုရှိရှိ ရေးသားပေးပါ။ ဇာတ်အိမ်အကြောင်းကို အဓိကထား၍ ပရော်ဖက်ရှင်နယ် ဆန်ဆန် ရေးပေးပါ။`;
+    const body = await req.json();
+    const prompt = `Write a movie review for ${body.code} using this info: ${body.desc}. Language: Myanmar.`;
 
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }]
-        })
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
 
-      const result = await res.json();
+      const result = await response.json();
+
+      // Google ဘက်က ပို့လိုက်တဲ့ Error အသေးစိတ်ကို ဖမ်းယူခြင်း
+      if (result.error) {
+        return new Response(JSON.stringify({ 
+          error: `${result.error.status} - ${result.error.message}` 
+        }), { status: 400 });
+      }
+
       const aiText = result.candidates[0].content.parts[0].text;
-      
-      return new Response(JSON.stringify({ text: aiText }), { headers: { "Content-Type": "application/json" } });
-    } catch {
-      return new Response(JSON.stringify({ text: "Error: AI ချိတ်ဆက်မှု မအောင်မြင်ပါ (Key မှန်မမှန် စစ်ပါ)" }), { status: 500 });
+      return new Response(JSON.stringify({ text: aiText }));
+
+    } catch (err) {
+      return new Response(JSON.stringify({ error: "Network Fetch Error: " + err.message }), { status: 500 });
     }
   }
 
-  return new Response("Ready", { status: 200 });
+  return new Response("Not Found", { status: 404 });
 });
