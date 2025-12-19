@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 
+const API_KEY = Deno.env.get("GEMINI_API_KEY");
+
 serve(async (req) => {
   const url = new URL(req.url);
 
@@ -10,59 +12,45 @@ serve(async (req) => {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
-            body { font-family: sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 15px; }
-            .container { background: #1e293b; padding: 30px; border-radius: 20px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.4); }
-            input { width: 100%; padding: 15px; margin: 15px 0; border-radius: 10px; border: 2px solid #334155; background: #0f172a; color: white; outline: none; box-sizing: border-box; }
-            input:focus { border-color: #38bdf8; }
-            button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer; transition: 0.3s; }
-            button:active { transform: scale(0.95); }
-            #loading { display: none; margin: 15px 0; color: #38bdf8; font-weight: bold; }
-            #result { margin-top: 20px; display: none; padding: 15px; background: #059669; border-radius: 10px; }
-            a { color: white; text-decoration: none; font-weight: bold; display: block; }
+            body { font-family: sans-serif; padding: 20px; background: #0f172a; color: white; }
+            .box { background: #1e293b; padding: 25px; border-radius: 15px; max-width: 500px; margin: auto; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+            input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #334155; color: white; box-sizing: border-box; }
+            button { width: 100%; padding: 15px; background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+            #output { margin-top: 20px; background: #0f172a; padding: 20px; border-radius: 10px; white-space: pre-wrap; display: none; line-height: 1.6; border-left: 5px solid #38bdf8; }
           </style>
         </head>
         <body>
-          <div class="container">
-            <h2 style="margin-top:0;">Video Downloader</h2>
-            <p style="color: #94a3b8; font-size: 14px;">Facebook Reels, TikTok, YouTube</p>
-            <input type="text" id="videoUrl" placeholder="Paste Video Link Here...">
-            <button onclick="downloadVideo()" id="dlBtn">Download Video</button>
-            <div id="loading">ခဏစောင့်ပါ (Processing)...</div>
-            <div id="result"></div>
+          <div class="box">
+            <h2 style="color: #38bdf8;">MoviPlus AI Writer 🤩</h2>
+            <p style="font-size: 14px; color: #94a3b8;">JAV Code နှင့် Trailer အညွှန်းမှတစ်ဆင့် မြန်မာစာသားထုတ်ယူရန်</p>
+            <input type="text" id="code" placeholder="Movie Code (e.g. SSIS-881)">
+            <textarea id="shortDesc" rows="4" placeholder="Trailer Web မှ အညွှန်းတိုလေးကို ဒီမှာ Paste လုပ်ပါ..."></textarea>
+            <button onclick="generateStory()" id="genBtn">Generate Story (Gemini 1.5)</button>
+            <div id="output"></div>
           </div>
 
           <script>
-            async function downloadVideo() {
-              const videoUrl = document.getElementById('videoUrl').value;
-              const btn = document.getElementById('dlBtn');
-              const loading = document.getElementById('loading');
-              const resDiv = document.getElementById('result');
-              
-              if (!videoUrl) return alert("Link အရင်ထည့်ပါ");
-              
-              btn.style.display = "none";
-              loading.style.display = "block";
-              resDiv.style.display = "none";
+            async function generateStory() {
+              const code = document.getElementById('code').value;
+              const desc = document.getElementById('shortDesc').value;
+              const out = document.getElementById('output');
+              const btn = document.getElementById('genBtn');
 
-              try {
-                const response = await fetch('/api/download', {
-                  method: 'POST',
-                  body: JSON.stringify({ url: videoUrl })
-                });
-                const data = await response.json();
-                
-                if (data.url) {
-                  resDiv.style.display = "block";
-                  resDiv.innerHTML = '<a href="' + data.url + '" target="_blank">Download ကိုနှိပ်ပါ (သို့) ဖိထားပါ</a>';
-                } else {
-                  alert("ဒေါင်းလုပ်ဆွဲ၍ မရပါ။ Facebook မှာ Private လုပ်ထားတဲ့ ဗီဒီယို ဖြစ်နိုင်ပါတယ်။");
-                }
-              } catch (e) {
-                alert("Server နှင့် ချိတ်ဆက်မှု အခက်အခဲရှိနေပါသည်။");
-              } finally {
-                btn.style.display = "block";
-                loading.style.display = "none";
-              }
+              if(!code || !desc) return alert("အချက်အလက် အကုန်ဖြည့်ပါ");
+
+              btn.innerText = "Gemini က စဉ်းစားနေပါတယ်...";
+              btn.disabled = true;
+
+              const response = await fetch('/api/gemini', {
+                method: 'POST',
+                body: JSON.stringify({ code, desc })
+              });
+              const data = await response.json();
+              
+              out.style.display = "block";
+              out.innerText = data.text;
+              btn.innerText = "Generate Story (Gemini 1.5)";
+              btn.disabled = false;
             }
           </script>
         </body>
@@ -70,43 +58,32 @@ serve(async (req) => {
     `, { headers: { "Content-Type": "text/html; charset=UTF-8" } });
   }
 
-  if (req.method === "POST" && url.pathname === "/api/download") {
+  if (req.method === "POST" && url.pathname === "/api/gemini") {
     const body = await req.json();
-    const videoUrl = body.url;
+    
+    // Gemini ထံ ပို့မည့် ညွှန်ကြားချက် (Prompt)
+    const promptText = `ဇာတ်ကားကုဒ်: ${body.code}
+မူရင်းအညွှန်းတို: ${body.desc}
+
+အထက်ပါ အချက်အလက်များကို အခြေခံ၍ ရုပ်ရှင်ကြည့်သူများ စိတ်ဝင်စားသွားစေမည့် မြန်မာလို ဇာတ်လမ်းအညွှန်း အရှည်တစ်ခုကို ဆွဲဆောင်မှုရှိရှိ ရေးသားပေးပါ။ ဇာတ်အိမ်အကြောင်းကို အဓိကထား၍ ပရော်ဖက်ရှင်နယ် ဆန်ဆန် ရေးပေးပါ။`;
 
     try {
-      // ၁။ Facebook အတွက် ပိုမိုအစွမ်းထက်သော အရန် API ကို အသုံးပြုခြင်း
-      const res = await fetch("https://api.cobalt.tools/api/json", {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
         method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: videoUrl,
-          videoQuality: "720",
-          filenameStyle: "pretty"
+          contents: [{ parts: [{ text: promptText }] }]
         })
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      const aiText = result.candidates[0].content.parts[0].text;
       
-      // ၂။ အကယ်၍ Cobalt နဲ့ မရခဲ့လျှင် တခြား Free API တစ်ခုကို ထပ်စမ်းခြင်း
-      if (!data.url) {
-        // ဤနေရာတွင် Tikwm API (TikTok & More) ကို စမ်းသပ်ခြင်း
-        const altRes = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(videoUrl)}`);
-        const altData = await altRes.json();
-        if (altData.data && altData.data.play) {
-           return new Response(JSON.stringify({ url: altData.data.play }), { headers: { "Content-Type": "application/json" } });
-        }
-      }
-
-      return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
-    } catch (err) {
-      return new Response(JSON.stringify({ error: "Fail" }), { status: 500 });
+      return new Response(JSON.stringify({ text: aiText }), { headers: { "Content-Type": "application/json" } });
+    } catch {
+      return new Response(JSON.stringify({ text: "Error: AI ချိတ်ဆက်မှု မအောင်မြင်ပါ (Key မှန်မမှန် စစ်ပါ)" }), { status: 500 });
     }
   }
 
-  return new Response("Not Found", { status: 404 });
+  return new Response("Ready", { status: 200 });
 });
