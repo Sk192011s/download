@@ -13,65 +13,68 @@ serve(async (req) => {
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
             body { font-family: sans-serif; background: #0f172a; color: white; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-            .container { background: #1e293b; padding: 25px; border-radius: 15px; width: 100%; max-width: 450px; }
-            h2 { color: #f43f5e; text-align: center; margin-top: 0; }
-            label { display: block; margin-top: 15px; font-size: 14px; color: #94a3b8; }
-            input, textarea { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; outline: none; }
+            .container { background: #1e293b; padding: 25px; border-radius: 15px; width: 100%; max-width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            h2 { color: #f43f5e; text-align: center; }
+            textarea { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; outline: none; }
             button { width: 100%; padding: 15px; margin-top: 20px; border-radius: 8px; border: none; background: #f43f5e; color: white; font-weight: bold; cursor: pointer; }
+            #status { text-align: center; margin-top: 10px; font-size: 13px; color: #94a3b8; }
             #resultBox { margin-top: 25px; display: none; }
             .output { background: #0f172a; padding: 15px; border-radius: 10px; border-left: 4px solid #f43f5e; white-space: pre-wrap; font-size: 15px; line-height: 1.7; }
-            .copy-btn { background: #475569; margin-top: 10px; padding: 10px; font-size: 13px; width: 100%; border: none; color: white; border-radius: 5px; cursor: pointer; }
+            .err { color: #fb7185; background: #451a1a; padding: 10px; border-radius: 5px; margin-top: 10px; display: none; font-size: 13px; }
           </style>
         </head>
         <body>
           <div class="container">
-            <h2>MoviPlus AI Translator 🔞</h2>
-            
-            <label>ဇာတ်ကားကုဒ် (Code)</label>
-            <input type="text" id="code" placeholder="e.g. MIDV-623">
-            
-            <label>မူရင်းအညွှန်း (English/Japanese) *</label>
-            <textarea id="originalText" rows="6" placeholder="Trailer web က အညွှန်းစာသားကို ဒီမှာ Paste လုပ်ပါ..."></textarea>
-            
+            <h2>AI Translator V1.9 🔞</h2>
+            <div id="status">Ready to Translate</div>
+            <textarea id="originalText" rows="6" placeholder="မူရင်းစာသားကို ဒီမှာ Paste လုပ်ပါ..."></textarea>
             <button id="genBtn" onclick="translate()">ဆီလျော်အောင် ဘာသာပြန်မည်</button>
             
+            <div id="errorBox" class="err"></div>
+
             <div id="resultBox">
-              <label>မြန်မာဘာသာပြန် အညွှန်း:</label>
               <div id="outputText" class="output"></div>
-              <button class="copy-btn" onclick="copyResult()">Copy စာသားကူးမည်</button>
             </div>
           </div>
 
           <script>
             async function translate() {
-              const code = document.getElementById('code').value;
               const text = document.getElementById('originalText').value;
               const btn = document.getElementById('genBtn');
+              const status = document.getElementById('status');
               const resBox = document.getElementById('resultBox');
+              const errBox = document.getElementById('errorBox');
               const out = document.getElementById('outputText');
 
-              if(!text) return alert("မူရင်းစာသား ထည့်ပေးပါ");
+              if(!text) return alert("စာသား အရင်ထည့်ပါ");
 
-              btn.innerText = "ဘာသာပြန်နေပါသည်...";
               btn.disabled = true;
+              status.innerText = "AI ဆီသို့ ပို့ဆောင်နေပါသည်...";
+              errBox.style.display = "none";
               resBox.style.display = "none";
 
               try {
                 const res = await fetch('/api/translate', {
                   method: 'POST',
-                  body: JSON.stringify({ code, text })
+                  body: JSON.stringify({ text })
                 });
                 const data = await res.json();
-                resBox.style.display = "block";
-                out.innerText = data.translated;
-              } catch (e) { alert("Error ဖြစ်သွားပါသည်။"); }
-              finally { btn.innerText = "ဆီလျော်အောင် ဘာသာပြန်မည်"; btn.disabled = false; }
-            }
-
-            function copyResult() {
-              const text = document.getElementById('outputText').innerText;
-              navigator.clipboard.writeText(text);
-              alert("ကူးယူပြီးပါပြီ!");
+                
+                if (data.translated) {
+                  resBox.style.display = "block";
+                  out.innerText = data.translated;
+                  status.innerText = "ဘာသာပြန်ခြင်း အောင်မြင်သည် ✅";
+                } else {
+                  errBox.style.display = "block";
+                  errBox.innerText = "AI Error: " + (data.error || "AI က ဘာသာပြန်ရန် ငြင်းဆိုလိုက်ပါသည် (Safety Block ဖြစ်နိုင်သည်)");
+                  status.innerText = "မအောင်မြင်ပါ ❌";
+                }
+              } catch (e) {
+                errBox.style.display = "block";
+                errBox.innerText = "System Error: ချိတ်ဆက်မှု ပြတ်တောက်သွားပါသည်";
+              } finally {
+                btn.disabled = false;
+              }
             }
           </script>
         </body>
@@ -80,30 +83,20 @@ serve(async (req) => {
   }
 
   if (req.method === "POST" && url.pathname === "/api/translate") {
-    const { code, text } = await req.json();
+    const { text } = await req.json();
 
-    // AI ကို ပိုမိုပွင့်လင်းစွာ ဘာသာပြန်ခိုင်းသည့် Prompt
-    const prompt = `
-      As a professional translator for an adult movie app, translate the following text into Myanmar language.
-      Context: This is for the movie code "${code}".
-      
-      Instructions:
-      1. Translate the meaning accurately and naturally (ဆီလျော်အောင်).
-      2. Do NOT censor sexual terms. Keep the original explicit meaning and "sex" related nuances.
-      3. Use engaging and attractive Myanmar prose that adult movie viewers would like.
-      4. If the text is in Japanese, translate directly to Myanmar.
-      
-      Original Text:
-      ${text}
-    `;
+    const prompt = `Translate this adult movie description to Myanmar. 
+    Use attractive and explicit language. Do NOT censor anything. 
+    Make it sound interesting for viewers. 
+    Text: ${text}`;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
+      // ညီကို့ Model list ထဲမှ gemini-2.0-flash ကို သုံးကြည့်ပါမည် (ပိုတည်ငြိမ်သည်)
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          // Safety Settings အကုန်ပိတ်ထားမှ Explicit စာသားတွေ ထွက်လာမှာပါ
           safetySettings: [
             { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
             { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
@@ -114,11 +107,18 @@ serve(async (req) => {
       });
 
       const result = await response.json();
-      const translatedText = result.candidates[0].content.parts[0].text;
-      return new Response(JSON.stringify({ translated: translatedText }));
+
+      // AI က ဘာကြောင့် ပိတ်လိုက်တာလဲဆိုတာကို စစ်ဆေးခြင်း
+      if (result.candidates && result.candidates[0].content) {
+        const translated = result.candidates[0].content.parts[0].text;
+        return new Response(JSON.stringify({ translated }));
+      } else {
+        const reason = result.promptFeedback?.blockReason || "Safety Policy Blocked";
+        return new Response(JSON.stringify({ error: reason }), { status: 400 });
+      }
 
     } catch (err) {
-      return new Response(JSON.stringify({ error: "Fail" }), { status: 500 });
+      return new Response(JSON.stringify({ error: err.message }), { status: 500 });
     }
   }
 
