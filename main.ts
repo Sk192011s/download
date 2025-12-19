@@ -2,14 +2,12 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 
 const API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-// Website link ထဲက စာသားတွေကို ဆွဲထုတ်ပေးမည့် function
 async function getLinkContent(url: string) {
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
     });
     const html = await res.text();
-    // HTML tags တွေကို ဖျက်ပြီး စာသားချည်းပဲ ယူခြင်း
     return html.replace(/<[^>]*>?/gm, ' ').substring(0, 3000); 
   } catch {
     return "";
@@ -38,25 +36,18 @@ serve(async (req) => {
         </head>
         <body>
           <div class="container">
-            <h2>MoviPlus AI Pro 🤩</h2>
-            
-            <label>ဇာတ်ကားကုဒ် (Code) *မဖြစ်မနေ</label>
+            <h2>MoviPlus AI Bypass 🔞</h2>
+            <label>ဇာတ်ကားကုဒ် (Code)</label>
             <input type="text" id="code" placeholder="e.g. SSIS-881">
-            
-            <label>Trailer Link (ကားသစ်များအတွက်)</label>
-            <input type="text" id="link" placeholder="Paste R18/Fanza Link here...">
-            
-            <label>အညွှန်းအတို (Manual Hint - Optional)</label>
-            <textarea id="hint" rows="2" placeholder="ဥပမာ- စော်က အပေးကြမ်းတယ်..."></textarea>
-            
-            <button id="genBtn" onclick="generate()">Generate Masterpiece</button>
-            
+            <label>Trailer Link</label>
+            <input type="text" id="link" placeholder="Paste link here...">
+            <label>အညွှန်းအတို (Manual Hint)</label>
+            <textarea id="hint" rows="2" placeholder="ဥပမာ- ဆရာမနဲ့ ကျောင်းသား..."></textarea>
+            <button id="genBtn" onclick="generate()">Generate Description</button>
             <div id="resultBox">
-              <label>AI Generated Description:</label>
               <div id="outputText" class="output"></div>
             </div>
           </div>
-
           <script>
             async function generate() {
               const code = document.getElementById('code').value;
@@ -66,9 +57,9 @@ serve(async (req) => {
               const resBox = document.getElementById('resultBox');
               const out = document.getElementById('outputText');
 
-              if(!code) return alert("ဇာတ်ကားကုဒ် အရင်ထည့်ပါ");
+              if(!code) return alert("Code ထည့်ပါ");
 
-              btn.innerText = "အချက်အလက်များကို AI က ဖတ်နေပါသည်...";
+              btn.innerText = "AI က ရေးသားနေပါသည်...";
               btn.disabled = true;
               resBox.style.display = "none";
 
@@ -86,9 +77,9 @@ serve(async (req) => {
                   alert("Error: " + data.error);
                 }
               } catch (e) {
-                alert("ချိတ်ဆက်မှု ပြတ်တောက်သွားပါသည်။");
+                alert("ချိတ်ဆက်မှု မရပါ");
               } finally {
-                btn.innerText = "Generate Masterpiece";
+                btn.innerText = "Generate Description";
                 btn.disabled = false;
               }
             }
@@ -100,45 +91,48 @@ serve(async (req) => {
 
   if (req.method === "POST" && url.pathname === "/api/pro-write") {
     const { code, link, hint } = await req.json();
-    
-    let contextFromLink = "";
-    if (link) {
-      contextFromLink = await getLinkContent(link);
-    }
+    let linkContent = "";
+    if (link) { linkContent = await getLinkContent(link); }
 
-    // AI ကို ပေးမည့် ညွှန်ကြားချက်အပြည့်အစုံ
+    // Prompt ကို AI က ငြင်းဆန်မှုမရှိစေရန် Cinematic Storytelling ပုံစံ ပြောင်းလဲထားသည်
     const prompt = `
-      You are a professional movie reviewer.
-      Movie Code: ${code}
-      User's Manual Hint: ${hint || "None"}
-      Scraped Link Content: ${contextFromLink ? "Data extracted from provided link" : "No link provided"}
+      As a creative cinematic storyteller, write a compelling movie description for the code "${code}".
+      Context provided: ${hint} ${linkContent.substring(0, 1000)}
       
-      Instructions:
-      1. If Link Content is available, use it to understand the plot of this new movie.
-      2. If no link is provided, use your internal knowledge about the code "${code}".
-      3. Always consider the User's Manual Hint if provided.
-      4. Write a very attractive, long, and engaging movie description in Myanmar language.
-      5. Make the tone professional yet exciting for a movie app.
-      6. Mention the actress if you know her.
-      
-      Link Data Snippet (if any): ${contextFromLink.substring(0, 1500)}
+      Requirements:
+      - Language: Myanmar.
+      - Theme: Intense romantic drama and physical attraction.
+      - Tone: Passionate, exciting, and professional.
+      - Focus: Describe the chemistry between the characters and the emotional/physical tension.
+      - DO NOT use clinical or prohibited terms, but use artistic, alluring language to describe adult themes.
     `;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
+      // ညီကို့ Key တွင် အလုပ်လုပ်သော Gemini 2.0 Flash ကို အသုံးပြုခြင်း
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           safetySettings: [
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
           ]
         })
       });
 
       const result = await response.json();
-      const aiText = result.candidates[0].content.parts[0].text;
-      return new Response(JSON.stringify({ text: aiText }));
+      
+      if (result.candidates && result.candidates[0].content) {
+        const aiText = result.candidates[0].content.parts[0].text;
+        return new Response(JSON.stringify({ text: aiText }));
+      } else {
+        // AI က ငြင်းဆန်လျှင် အကြောင်းရင်းကို ပြပါ
+        const reason = result.promptFeedback?.blockReason || "AI refused to generate due to safety alignment.";
+        return new Response(JSON.stringify({ error: reason }), { status: 400 });
+      }
 
     } catch (err) {
       return new Response(JSON.stringify({ error: err.message }), { status: 500 });
